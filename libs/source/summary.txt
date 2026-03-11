@@ -1,0 +1,10 @@
+Summary for mapleir-full-with-deps.jar
+Decompiled with CFR 0.152
+
+
+com.google.common.util.concurrent.AbstractFuture
+----------------------------
+
+removeWaiter(com.google.common.util.concurrent.AbstractFuture$Waiter )
+  Unable to fully structure code
+Exception analysing jar Cannot create dumper org.benf.cfr.reader.util.output.Dumper$CannotCreate: File already exists, and option 'clobber' not set
