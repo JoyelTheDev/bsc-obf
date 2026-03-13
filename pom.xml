@@ -17,7 +17,6 @@
     </properties>
 
     <dependencies>
-        <!-- ASM Dependencies -->
         <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm</artifactId>
@@ -44,7 +43,6 @@
             <version>9.8</version>
         </dependency>
 
-        <!-- Local JARs from libs folder -->
         <dependency>
             <groupId>local.libs</groupId>
             <artifactId>mapleir-core</artifactId>
@@ -59,12 +57,10 @@
             <scope>system</scope>
             <systemPath>${project.basedir}/libs/cfr-0.152.jar</systemPath>
         </dependency>
-        <!-- Добавляй сюда все остальные JAR из libs -->
     </dependencies>
 
     <build>
         <plugins>
-            <!-- Compiler Plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -74,7 +70,6 @@
                 </configuration>
             </plugin>
 
-            <!-- Shade Plugin для fat-jar -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>

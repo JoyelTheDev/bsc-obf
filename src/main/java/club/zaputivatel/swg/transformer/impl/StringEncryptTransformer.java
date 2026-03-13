@@ -27,13 +27,76 @@ import java.util.concurrent.ThreadLocalRandom;
 public class StringEncryptTransformer implements Transformer {
     private final Map<String, ClassState> classStates = new HashMap<>();
 
+    private org.objectweb.asm.tree.MethodNode getOrCreateClinit(ClassNode owner) {
+        for (org.objectweb.asm.tree.MethodNode method : owner.methods) {
+            if ("<clinit>".equals(method.name) && "()V".equals(method.desc)) {
+                return method;
+            }
+        }
+
+        org.objectweb.asm.tree.MethodNode clinit = new org.objectweb.asm.tree.MethodNode(
+                Opcodes.ACC_STATIC,
+                "<clinit>",
+                "()V",
+                null,
+                null
+        );
+        clinit.instructions.add(new InsnNode(Opcodes.RETURN));
+        clinit.maxStack = 1;
+        clinit.maxLocals = 0;
+        owner.methods.add(clinit);
+        return clinit;
+    }
+
+    private void transformStaticFinalFields(ClassNode owner, ClassState state) {
+        org.objectweb.asm.tree.MethodNode clinit = getOrCreateClinit(owner);
+
+        for (FieldNode field : owner.fields) {
+            if ((field.access & Opcodes.ACC_STATIC) == 0) continue;
+            if ((field.access & Opcodes.ACC_FINAL) == 0) continue;
+            if (!"Ljava/lang/String;".equals(field.desc)) continue;
+            if (!(field.value instanceof String value)) continue;
+            if (value.isEmpty()) continue;
+
+            int key = ThreadLocalRandom.current().nextInt(100, 0x7FFF);
+            String runtimeName = owner.name.replace('/', '.');
+            String encrypted = morph(value, key, runtimeName);
+
+            ConstantDynamic condy = new ConstantDynamic(
+                    "c_" + randomIdent(5),
+                    "Ljava/lang/String;",
+                    state.bootstrapHandle,
+                    encrypted,
+                    key
+            );
+
+            InsnList inject = new InsnList();
+            inject.add(new LdcInsnNode(condy));
+            inject.add(new FieldInsnNode(
+                    Opcodes.PUTSTATIC,
+                    owner.name,
+                    field.name,
+                    field.desc
+            ));
+
+            clinit.instructions.insert(inject);
+
+            field.value = null; // убираем ConstantValue
+        }
+    }
     @Override
     public void transform(ControlFlowGraph cfg, MethodNode mapleMethod) {
         org.objectweb.asm.tree.MethodNode method = mapleMethod.node;
         ClassNode owner = mapleMethod.owner.node;
 
-        if (method.instructions == null || method.instructions.size() == 0) return;
         ClassState state = ensureClassState(owner);
+
+        if (!state.fieldsProcessed) {
+            transformStaticFinalFields(owner, state);
+            state.fieldsProcessed = true;
+        }
+
+        if (method.instructions == null || method.instructions.size() == 0) return;
         if (method.name.equals(state.bootstrapName)) return;
 
         for (AbstractInsnNode insn : method.instructions.toArray()) {
@@ -193,5 +256,6 @@ public class StringEncryptTransformer implements Transformer {
         String bootstrapName;
         String bootstrapDesc;
         Handle bootstrapHandle;
+        boolean fieldsProcessed;
     }
 }
