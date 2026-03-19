@@ -10,8 +10,7 @@ import java.util.*;
 
 public class BlockDuplicateTransformer implements Transformer {
 
-    public BlockDuplicateTransformer() {
-    }
+    public BlockDuplicateTransformer() {}
 
     @Override
     public void transform(ControlFlowGraph cfg, MethodNode mapleMethod) {
