@@ -1,5 +1,6 @@
 import club.zaputivatel.swg.ObfuscatorCore;
 import club.zaputivatel.swg.config.ConfigLoader;
+import club.zaputivatel.swg.transformer.TransformerRegistry;
 
 import java.nio.file.Paths;
 
@@ -30,13 +31,19 @@ public class Start {
                     ConfigLoader.createDefaultConfigFile(configPath);
                     break;
                     
+                case "--list":
+                case "-l":
+                    listTransformers();
+                    break;
+                    
                 case "--help":
                 case "-h":
                     printUsage();
                     break;
                     
                 default:
-                    runDefault();
+                    System.err.println("Unknown command: " + command);
+                    printUsage();
                     break;
             }
             
@@ -48,44 +55,35 @@ public class Start {
     }
     
     private static void runWithConfig(String configPath) throws Exception {
-        System.out.println("Loading config from: " + configPath);
+        System.out.println("Loading configuration from: " + configPath);
+        System.out.println();
         ObfuscatorCore obfuscator = ObfuscatorCore.fromConfig(configPath).build();
         obfuscator.start();
     }
     
-    private static void runDefault() {
-        System.out.println("Running with default configuration...");
-        ObfuscatorCore obfuscator = ObfuscatorCore.builder()
-                .input(Paths.get("test/test.jar"))
-                .output(Paths.get("test/output.jar"))
-                .debug()
-                .addTransformer(new club.zaputivatel.swg.transformer.impl.OpaquePredictTransformer())
-                .addTransformer(new club.zaputivatel.swg.transformer.impl.ControlFlowFlatteningMutator())
-                .addTransformer(new club.zaputivatel.swg.transformer.impl.TrapEdgeFlowTransformer())
-                .addTransformer(new club.zaputivatel.swg.transformer.impl.MutateInstrTransformer())
-                .addTransformer(new club.zaputivatel.swg.transformer.impl.SwitchMutateTransformer())
-                .addTransformer(new club.zaputivatel.swg.transformer.impl.BlockBreakerTransformer())
-                .addTransformer(new club.zaputivatel.swg.transformer.impl.NumberObfuscationTransformer())
-                .addTransformer(new club.zaputivatel.swg.transformer.impl.BlockDuplicateTransformer())
-                .addTransformer(new club.zaputivatel.swg.transformer.impl.StringEncryptTransformer())
-                .build();
-        obfuscator.start();
+    private static void listTransformers() {
+        System.out.println("Available Transformers:");
+        System.out.println("======================");
+        for (String name : TransformerRegistry.getAvailableTransformers()) {
+            System.out.println("  • " + name);
+        }
     }
     
     private static void printUsage() {
-        System.out.println("Java Obfuscator - Usage:");
+        System.out.println("Java Obfuscator - Simple Configuration System");
         System.out.println();
-        System.out.println("  java -jar obfuscator.jar [options]");
+        System.out.println("Usage: java -jar obfuscator.jar <command> [options]");
         System.out.println();
-        System.out.println("Options:");
-        System.out.println("  --config, -c <file>     Run with configuration file");
+        System.out.println("Commands:");
+        System.out.println("  --config, -c <file>     Run obfuscation with config file");
         System.out.println("  --create-config, --gen-config [file]  Create default config file");
+        System.out.println("  --list, -l              List all available transformers");
         System.out.println("  --help, -h              Show this help message");
         System.out.println();
         System.out.println("Examples:");
-        System.out.println("  java -jar obfuscator.jar --config obfuscator-config.json");
-        System.out.println("  java -jar obfuscator.jar --create-config my-config.json");
-        System.out.println("  java -jar obfuscator.jar  (runs with default hardcoded configuration)");
+        System.out.println("  java -jar obfuscator.jar --config my-config.json");
+        System.out.println("  java -jar obfuscator.jar --create-config");
+        System.out.println("  java -jar obfuscator.jar --list");
         System.out.println();
     }
 }
