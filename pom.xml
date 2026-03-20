@@ -37,6 +37,17 @@
             <artifactId>asm-analysis</artifactId>
             <version>9.8</version>
         </dependency>
+     <dependency>
+        <groupId>org.mapleir</groupId>
+        <artifactId>mapleir-core</artifactId>
+        <version>1.0</version>
+     </dependency>
+     <dependency>
+        <groupId>org.mapleir</groupId>
+        <artifactId>mapleir-ir</artifactId>
+        <version>1.0</version>
+   </dependency>
+   </dependencies>
         <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm-commons</artifactId>
@@ -46,14 +57,6 @@
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm-util</artifactId>
             <version>9.8</version>
-        </dependency>
-
-        <dependency>
-            <groupId>local.libs</groupId>
-            <artifactId>mapleir-core</artifactId>
-            <version>1.0</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/libs/mapleir-full-with-deps.jar</systemPath>
         </dependency>
         <dependency>
             <groupId>local.libs</groupId>
