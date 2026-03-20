@@ -41,21 +41,25 @@ public class TransformerRegistry {
     public static List<Transformer> createFromConfig(ObfuscatorConfig config) {
         List<Transformer> transformers = new ArrayList<>();
         
-        List<ObfuscatorConfig.TransformerConfig> configs = new ArrayList<>(config.getTransformers());
-        configs.sort(Comparator.comparingInt(ObfuscatorConfig.TransformerConfig::getPriority));
-        
-        for (ObfuscatorConfig.TransformerConfig tConfig : configs) {
-            if (tConfig.isEnabled()) {
+        // Order matters - maintain the order from config
+        for (Map.Entry<String, Boolean> entry : config.getTransformers().entrySet()) {
+            String name = entry.getKey();
+            boolean enabled = entry.getValue();
+            
+            if (enabled) {
                 try {
-                    Transformer transformer = create(tConfig.getName());
+                    Transformer transformer = create(name);
                     transformers.add(transformer);
-                    System.out.println("Enabled transformer: " + tConfig.getName());
+                    System.out.println("✓ Enabled: " + name);
                 } catch (IllegalArgumentException e) {
-                    System.err.println("Warning: " + e.getMessage());
+                    System.err.println("✗ Warning: " + e.getMessage());
                 }
+            } else {
+                System.out.println("  Disabled: " + name);
             }
         }
         
+        System.out.println("\nTotal transformers enabled: " + transformers.size());
         return transformers;
     }
     
