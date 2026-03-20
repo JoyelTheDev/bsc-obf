@@ -31,14 +31,10 @@ public class ObfuscatorCore {
     private final int classReaderFlags;
     private final int classWriterFlags;
     private final boolean debug;
-    private final boolean verbose;
-    private final String logFile;
 
     private final List<org.objectweb.asm.tree.ClassNode> asmClassNodes = new ArrayList<>();
     private final Map<String, byte[]> resources = new LinkedHashMap<>();
     private final List<Transformer> transformers;
-    
-    private PrintStream logStream = System.out;
 
     private ObfuscatorCore(Builder builder) {
         this.in = builder.in;
@@ -46,39 +42,24 @@ public class ObfuscatorCore {
         this.classReaderFlags = builder.classReaderFlags;
         this.classWriterFlags = builder.classWriterFlags;
         this.debug = builder.debug;
-        this.verbose = builder.verbose;
-        this.logFile = builder.logFile;
         this.transformers = builder.transformers;
 
         if (!Files.exists(in)) {
             throw new IllegalArgumentException("Input file not found: " + in.toAbsolutePath());
         }
-        
-        setupLogging();
-    }
-
-    private void setupLogging() {
-        if (logFile != null && !logFile.isEmpty()) {
-            try {
-                File logFileObj = new File(logFile);
-                logFileObj.getParentFile().mkdirs();
-                logStream = new PrintStream(new FileOutputStream(logFileObj));
-            } catch (IOException e) {
-                System.err.println("Failed to create log file: " + logFile);
-                logStream = System.out;
-            }
-        }
-        
-        if (debug) {
-            System.setOut(logStream);
-        }
     }
 
     public void start() {
-        log("Starting obfuscation process...");
-        log("Input: " + in.toAbsolutePath());
-        log("Output: " + out.toAbsolutePath());
-        log("Transformers enabled: " + transformers.size());
+        if (debug) {
+            System.out.println("╔══════════════════════════════════════════════════════════╗");
+            System.out.println("║           Java Obfuscator - Starting Process             ║");
+            System.out.println("╚══════════════════════════════════════════════════════════╝");
+            System.out.println();
+            System.out.println("Input:  " + in.toAbsolutePath());
+            System.out.println("Output: " + out.toAbsolutePath());
+            System.out.println("Transformers: " + transformers.size());
+            System.out.println();
+        }
         
         long startTime = System.currentTimeMillis();
         
@@ -87,27 +68,21 @@ public class ObfuscatorCore {
         save();
         
         long endTime = System.currentTimeMillis();
-        log("Obfuscation completed in " + (endTime - startTime) + "ms");
         
-        if (logStream != System.out) {
-            logStream.close();
-        }
-    }
-    
-    private void log(String message) {
         if (debug) {
-            logStream.println("[Obfuscator] " + message);
-        }
-    }
-    
-    private void logVerbose(String message) {
-        if (debug && verbose) {
-            logStream.println("[VERBOSE] " + message);
+            System.out.println();
+            System.out.println("╔══════════════════════════════════════════════════════════╗");
+            System.out.println("║           Obfuscation Completed Successfully!            ║");
+            System.out.println("╚══════════════════════════════════════════════════════════╝");
+            System.out.println("Time elapsed: " + (endTime - startTime) + "ms");
+            System.out.println("Output saved to: " + out.toAbsolutePath());
         }
     }
 
     private void load() {
-        log("Loading jar: " + in.toAbsolutePath());
+        if (debug) {
+            System.out.println("[1/3] Loading JAR file...");
+        }
 
         Map<String, byte[]> files = loadFilesFromZip(in);
         int classCount = 0;
@@ -129,16 +104,25 @@ public class ObfuscatorCore {
             }
         }
 
-        log("Loaded classes: " + classCount);
-        log("Loaded resources: " + resourceCount);
+        if (debug) {
+            System.out.println("  ✓ Loaded " + classCount + " classes");
+            System.out.println("  ✓ Loaded " + resourceCount + " resources");
+            System.out.println();
+        }
     }
 
     private void process() {
+        if (debug) {
+            System.out.println("[2/3] Processing classes...");
+        }
+        
         int processedClasses = 0;
         int failedClasses = 0;
         
         for (org.objectweb.asm.tree.ClassNode asmNode : asmClassNodes) {
-            logVerbose("Processing ASM class: " + asmNode.name);
+            if (debug) {
+                System.out.print("  Processing: " + asmNode.name + " ... ");
+            }
             
             try {
                 org.mapleir.asm.ClassNode mapleClass = ASM2MAPLER.convertClass(asmNode);
@@ -149,7 +133,6 @@ public class ObfuscatorCore {
                 
                 for (org.objectweb.asm.tree.MethodNode m : methods) {
                     if ((m.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) != 0) {
-                        logVerbose("Skipping abstract/native method: " + m.name);
                         continue;
                     }
 
@@ -163,8 +146,9 @@ public class ObfuscatorCore {
                     try {
                         cfg = ControlFlowGraphBuilder.build(mapleMethod);
                     } catch (Throwable t) {
-                        logVerbose("Failed to build CFG: " + asmNode.name + "." + m.name + m.desc);
-                        if (verbose) t.printStackTrace(logStream);
+                        if (debug && classFailed == false) {
+                            System.out.print("(CFG failed) ");
+                        }
                         continue;
                     }
 
@@ -173,8 +157,9 @@ public class ObfuscatorCore {
                         try {
                             t.transform(cfg, mapleMethod);
                         } catch (Throwable ex) {
-                            logVerbose("Transformer failed: " + t.getClass().getSimpleName() + " on " + asmNode.name + "." + m.name + m.desc);
-                            if (verbose) ex.printStackTrace(logStream);
+                            if (debug) {
+                                System.out.print("(" + t.getClass().getSimpleName() + " failed) ");
+                            }
                             transformerFailed = true;
                             break;
                         }
@@ -192,8 +177,9 @@ public class ObfuscatorCore {
                         BoissinotDestructor.leaveSSA(cfg);
                         LocalsReallocator.realloc(cfg);
                     } catch (Throwable t) {
-                        logVerbose("BoissinotDestructor failed: " + asmNode.name + "." + m.name + m.desc);
-                        if (verbose) t.printStackTrace(logStream);
+                        if (debug) {
+                            System.out.print("(SSA failed) ");
+                        }
                         m.instructions.clear();
                         m.tryCatchBlocks.clear();
                         m.localVariables = null;
@@ -213,8 +199,9 @@ public class ObfuscatorCore {
                         try {
                             new ControlFlowGraphDumper(cfg, mapleMethod).dump();
                         } catch (Throwable t) {
-                            logVerbose("Failed to dump CFG: " + asmNode.name + "." + m.name + m.desc);
-                            if (verbose) t.printStackTrace(logStream);
+                            if (debug) {
+                                System.out.print("(dump failed) ");
+                            }
                             m.instructions.clear();
                             m.tryCatchBlocks.clear();
                             m.localVariables = null;
@@ -226,8 +213,9 @@ public class ObfuscatorCore {
                     try {
                         cfg.verify();
                     } catch (Throwable t) {
-                        logVerbose("CFG verification failed, restoring method: " + asmNode.name + "." + m.name + m.desc);
-                        if (verbose) t.printStackTrace(logStream);
+                        if (debug) {
+                            System.out.print("(verify failed) ");
+                        }
                         m.instructions.clear();
                         m.tryCatchBlocks.clear();
                         m.localVariables = null;
@@ -238,27 +226,41 @@ public class ObfuscatorCore {
                 
                 if (!classFailed) {
                     processedClasses++;
+                    if (debug) {
+                        System.out.println("✓");
+                    }
                 } else {
                     failedClasses++;
+                    if (debug) {
+                        System.out.println("✗");
+                    }
                 }
                 
             } catch (Exception e) {
-                logVerbose("Failed to process class: " + asmNode.name);
-                if (verbose) e.printStackTrace(logStream);
                 failedClasses++;
+                if (debug) {
+                    System.out.println("✗ (error)");
+                }
             }
         }
         
-        log("Processed classes: " + processedClasses);
-        log("Failed classes: " + failedClasses);
+        if (debug) {
+            System.out.println();
+            System.out.println("  Processed: " + processedClasses + " classes");
+            if (failedClasses > 0) {
+                System.out.println("  Failed: " + failedClasses + " classes");
+            }
+            System.out.println();
+        }
     }
 
     private void save() {
-        log("Saving jar: " + out.toAbsolutePath());
+        if (debug) {
+            System.out.println("[3/3] Saving obfuscated JAR...");
+        }
 
         try (JarOutputStream jos = new JarOutputStream(Files.newOutputStream(out))) {
             int savedClasses = 0;
-            int failedWrites = 0;
             
             for (int i = 0; i < asmClassNodes.size(); i++) {
                 org.objectweb.asm.tree.ClassNode asmNode = asmClassNodes.get(i);
@@ -274,8 +276,6 @@ public class ObfuscatorCore {
                         asmNode.accept(cw);
                         outBytes = cw.toByteArray();
                     } catch (Throwable t) {
-                        logVerbose("Primary write failed for class: " + asmNode.name + ", retrying with COMPUTE_MAXS only");
-                        if (verbose) t.printStackTrace(logStream);
                         ClassWriter cw = new FuckyClassWriter(ClassWriter.COMPUTE_MAXS);
                         asmNode.accept(cw);
                         outBytes = cw.toByteArray();
@@ -286,9 +286,9 @@ public class ObfuscatorCore {
                     jos.closeEntry();
                     savedClasses++;
                 } catch (Throwable t) {
-                    logVerbose("Failed to write class: " + asmNode.name + ", skipping. Error: " + t.getMessage());
-                    if (verbose) t.printStackTrace(logStream);
-                    failedWrites++;
+                    if (debug) {
+                        System.err.println("  Failed to write class: " + asmNode.name);
+                    }
                 }
             }
 
@@ -298,14 +298,15 @@ public class ObfuscatorCore {
                     jos.write(e.getValue());
                     jos.closeEntry();
                 } catch (Throwable t) {
-                    logVerbose("Failed to write resource: " + e.getKey());
-                    if (verbose) t.printStackTrace(logStream);
+                    if (debug) {
+                        System.err.println("  Failed to write resource: " + e.getKey());
+                    }
                 }
             }
             
-            log("Saved classes: " + savedClasses);
-            if (failedWrites > 0) {
-                log("Failed class writes: " + failedWrites);
+            if (debug) {
+                System.out.println("  ✓ Saved " + savedClasses + " classes");
+                System.out.println();
             }
         } catch (IOException e) {
             throw new RuntimeException("Cannot write output jar: " + out.toAbsolutePath(), e);
@@ -352,17 +353,11 @@ public class ObfuscatorCore {
         Builder builder = new Builder()
                 .input(config.getInputPath())
                 .output(config.getOutputPath())
-                .classReaderFlags(config.getClassLoading().getClassReaderFlags())
-                .classWriterFlags(config.getClassLoading().getClassWriterFlags());
+                .classReaderFlags(ClassReader.EXPAND_FRAMES)
+                .classWriterFlags(ClassWriter.COMPUTE_FRAMES);
         
         if (config.getDebug().isEnabled()) {
             builder.debug();
-            if (config.getDebug().isVerbose()) {
-                builder.verbose();
-            }
-            if (config.getDebug().getLogFile() != null) {
-                builder.logFile(config.getDebug().getLogFile());
-            }
         }
         
         List<Transformer> transformers = TransformerRegistry.createFromConfig(config);
@@ -379,8 +374,6 @@ public class ObfuscatorCore {
         private int classReaderFlags = ClassReader.EXPAND_FRAMES;
         private int classWriterFlags = ClassWriter.COMPUTE_FRAMES;
         private boolean debug;
-        private boolean verbose;
-        private String logFile;
         private List<Transformer> transformers = new ArrayList<>();
 
         private Builder() {
@@ -413,16 +406,6 @@ public class ObfuscatorCore {
 
         public Builder debug() {
             this.debug = true;
-            return this;
-        }
-        
-        public Builder verbose() {
-            this.verbose = true;
-            return this;
-        }
-        
-        public Builder logFile(String logFile) {
-            this.logFile = logFile;
             return this;
         }
 
