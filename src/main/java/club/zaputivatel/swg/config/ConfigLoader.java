@@ -6,6 +6,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.LinkedHashMap;
 
 public class ConfigLoader {
     private static final Gson gson = new GsonBuilder()
@@ -40,30 +41,22 @@ public class ConfigLoader {
     public static ObfuscatorConfig createDefaultConfig() {
         ObfuscatorConfig config = new ObfuscatorConfig();
         
-        // Add default transformers
-        addTransformer(config, "OpaquePredictTransformer", true, 10);
-        addTransformer(config, "ControlFlowFlatteningMutator", true, 20);
-        addTransformer(config, "TrapEdgeFlowTransformer", true, 30);
-        addTransformer(config, "MutateInstrTransformer", true, 40);
-        addTransformer(config, "SwitchMutateTransformer", true, 50);
-        addTransformer(config, "BlockBreakerTransformer", true, 60);
-        addTransformer(config, "NumberObfuscationTransformer", true, 70);
-        addTransformer(config, "BlockDuplicateTransformer", true, 80);
-        addTransformer(config, "StringEncryptTransformer", true, 90);
-        addTransformer(config, "CrasherTransformer", false, 100);
-        addTransformer(config, "WatermarkTransformer", false, 110);
-        addTransformer(config, "ShuffleTransformer", false, 120);
-        addTransformer(config, "StructAccessIndyTransformer", false, 130);
+        // All transformers with default enabled/disabled
+        config.getTransformers().put("OpaquePredictTransformer", true);
+        config.getTransformers().put("ControlFlowFlatteningMutator", true);
+        config.getTransformers().put("TrapEdgeFlowTransformer", true);
+        config.getTransformers().put("MutateInstrTransformer", true);
+        config.getTransformers().put("SwitchMutateTransformer", true);
+        config.getTransformers().put("BlockBreakerTransformer", true);
+        config.getTransformers().put("NumberObfuscationTransformer", true);
+        config.getTransformers().put("BlockDuplicateTransformer", true);
+        config.getTransformers().put("StringEncryptTransformer", true);
+        config.getTransformers().put("CrasherTransformer", false);
+        config.getTransformers().put("WatermarkTransformer", false);
+        config.getTransformers().put("ShuffleTransformer", false);
+        config.getTransformers().put("StructAccessIndyTransformer", false);
         
         return config;
-    }
-    
-    private static void addTransformer(ObfuscatorConfig config, String name, boolean enabled, int priority) {
-        ObfuscatorConfig.TransformerConfig t = new ObfuscatorConfig.TransformerConfig();
-        t.setName(name);
-        t.setEnabled(enabled);
-        t.setPriority(priority);
-        config.getTransformers().add(t);
     }
     
     public static void createDefaultConfigFile(String path) throws IOException {
